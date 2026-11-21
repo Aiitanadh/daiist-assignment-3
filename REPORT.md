@@ -1,12 +1,11 @@
 # Assignment 3 Report
 
-- **Name**:
-- **Student ID**:
+- **Name**: Aitana Damotte Huedo
+- **Student ID**: 18654
 - **Group**: [BBADBA 5A | BBADBA 5B | PPLEDBA 5A]
 
 ## Use case
-
-*Who asks, what they do with the answer, and what a wrong answer costs compared with "I don't know".*
+The user is the bid manager of a Spanish SME that sells managed cybersecurity services (SOC/MDR) and decides which public tenders on PLACSP and TED to bid for. They use the answers twice: first for a go/no-go decision (solvency thresholds, required certifications such as ISO/IEC 27001 or ENS, business classification) before investing days of work in a proposal; then to prepare the bid (submission deadline, guarantees, award criteria and their weights, service levels and penalties). A wrong answer is expensive: missing the deadline, not lodging the 5 % guarantee or misreading a solvency threshold gets the bid excluded, and a misread service level or penalty becomes a binding commitment on a €246k–€585k contract. “I don’t know” is cheap: every answer cites [document, page], so the user reads that page of the tender documents, which are the legally binding text anyway. The assistant should therefore refuse whenever the passage is not retrieved.
 
 ## Corpus
 
@@ -18,7 +17,7 @@
 
 ## Test set
 
-*How you wrote it, counts by kind, two examples.*
+I wrote 37 questions from the indexed documents (index/chunks_struct.csv and the original PDFs), drafted with Claude’s help and checked page by page against the PDFs. They cover what a bid manager asks before bidding: eligibility (solvency, certifications, classification), money (budget, estimated value, guarantees, penalties), timing (deadline, duration, extensions), scoring (criteria and weights) and service levels. Counts: 25 single, 6 multi, 6 unanswerable. Multi questions compare two tenders, or two documents of the same tender; one of them (q28) has the PCAP and the TED notice disagreeing on the contract duration. Unanswerable questions stay on topic: tenders that are not in the corpus (EMVS Madrid, Murcia), facts the tender documents do not contain (winner, number of bids, signature date) and thresholds set by other regulations.
 
 ## Retrieval
 
