@@ -466,14 +466,15 @@ First I would fix the chunking, re-run the evaluation and check my labels again.
 ## AI use
 *What you used and how, or "none".*
 
-- I used Claude (Anthropic) throughout. My teacher allowed us to work with it on the test questions, the report and the human labels.
-- **Code:** Claude wrote all the code (`index.py`, `retrieval.py`, `server.py`, `agent.py`, `evaluate.py`, `.claude/agents/corpus-researcher.md` and the helper scripts `buscar_licitaciones.py`, `etiquetar.py`, `ver_respuesta.py`, `demo_add_document.py`, `comparar_jueces.py`) and explained it to me step by step. I ran everything on my computer, checked the outputs and reported errors, which Claude fixed (for example, a race condition in the query cache and the parser for grouped citations).
-- **My decisions:**
+- I used Claude throughout to undertand everyhtgn i was doing.
+- Claude wrote all the code (`index.py`, `retrieval.py`, `server.py`, `agent.py`, `evaluate.py`, `.claude/agents/corpus-researcher.md` and the helper scripts `buscar_licitaciones.py`, `etiquetar.py`, `ver_respuesta.py`, `demo_add_document.py`, `comparar_jueces.py`) and explained it to me step by step. I ran everything on my computer in my terminal, checked the outputs and reported errors, which Claude fixed (for example, a race condition in the query cache and the parser for grouped citations).
+
+  What i decided: 
   - the use case;
   - the corpus: real PLACSP/TED tenders, with personal data removed and licences checked;
-  - the four extra rules in `AGENTS.md` and the judge rubric. Claude asked me multiple-choice questions and wrote the text from my answers;
+  - the four extra rules in `AGENTS.md` and the judge rubric. Claude asked me multiple-choice questions and wrote the text from my answers
   - the retrieval design, chosen by the numbers in `eval/retrieval.md`;
-  - the judge model: when gemini-3.6-flash ran out of free quota, Claude proposed the options and I chose gemini-3.1-flash-lite;
+  - the judge model there was a point  when gemini-3.6-flash ran out of free quota so Claude proposed the options and I chose gemini-3.1-flash-lite
   - the ship decision: not yet, fix the chunking first.
 - **Test set:** drafted with Claude. I checked each question and reference answer against the PDF page.
 - **Human labels:** Claude proposed a grade for each of the 37 answers using my rubric. I decided the doubtful ones (q06, q09, q11) and confirmed all of them. So my labels are not fully independent of an LLM, which matters when reading the agreement with the judge.
