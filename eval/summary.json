@@ -1,0 +1,47 @@
+{
+  "questions": 37,
+  "answered_by_agent": 37,
+  "graded": 12,
+  "correct": 12,
+  "correct_by_kind": {
+    "single": 6,
+    "unanswerable": 6
+  },
+  "n_by_kind": {
+    "single": 6,
+    "unanswerable": 6
+  },
+  "unsupported_answers": 0,
+  "answered": 6,
+  "correct_refusals": 6,
+  "unanswerable": 6,
+  "wrong_refusals": 0,
+  "answerable": 6,
+  "missed_refusals": 0,
+  "invalid_citation_answers": 0,
+  "guardrail_fired": 0,
+  "guardrail_blocked": 0,
+  "tokens_mean": 7196,
+  "tokens_median": 5677,
+  "seconds_mean": 7.5,
+  "seconds_median": 3.8,
+  "seconds_max": 36.45,
+  "tool_calls_mean": 1.32,
+  "failures_by_suggested_cause": {},
+  "human_judge_agreement": {
+    "correct": {
+      "n": 0,
+      "agreement": null,
+      "kappa": null
+    },
+    "supported": {
+      "n": 0,
+      "agreement": null,
+      "kappa": null
+    },
+    "disagreements": []
+  },
+  "chat_model": "gemini-3.5-flash-lite",
+  "judge_model": "gemini-3.6-flash",
+  "design": "struct / dense / filtro=True / k=5"
+}
