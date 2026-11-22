@@ -52,7 +52,7 @@ SEARCH_METHODS = ["dense", "bm25", "hybrid"]
 
 # >>> TU DECISIÓN: rellénala con los números de eval/retrieval.md <<<
 CHOSEN_DESIGN = os.environ.get("RAG_DESIGN", "struct")
-CHOSEN_METHOD = os.environ.get("RAG_METHOD", "hybrid")
+CHOSEN_METHOD = os.environ.get("RAG_METHOD", "dense")
 CHOSEN_TENDER_FILTER = True   # filtrar por licitación cuando la pregunta nombra una
 TOP_K = 5
 
