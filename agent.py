@@ -21,13 +21,17 @@ from __future__ import annotations
 import asyncio
 import sys
 import time
+import warnings
 from contextlib import AsyncExitStack
 from pathlib import Path
 
 import config
-from retrieval import CITATION_RE, citation_is_valid, parse_hits
+from retrieval import citation_is_valid, find_citations, parse_hits
 
 ROOT = Path(__file__).resolve().parent
+# Los modelos Gemini 3.x ignoran temperature y lo avisan en cada llamada: el aviso es
+# inofensivo (solo significa que las respuestas pueden variar entre ejecuciones).
+warnings.filterwarnings("ignore", message=".*uses fixed sampling defaults.*")
 SYSTEM_PROMPT = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
 
 
@@ -42,7 +46,7 @@ def check_citations(answer: str, retrieved: list[dict]) -> list[str]:
     """Guardarraíl de citas. Devuelve la lista de problemas (vacía = OK)."""
     if is_refusal(answer):
         return []
-    cites = [(d, int(p)) for d, p in CITATION_RE.findall(answer)]
+    cites = find_citations(answer)
     if not cites:
         return ["la respuesta no tiene ninguna cita [doc_id, p. N]"]
     bad = sorted({f"[{d}, p. {p}]" for d, p in cites if not citation_is_valid(d, p, retrieved)})
@@ -194,7 +198,7 @@ class Harness:
             "question": question,
             "answer": answer,
             "refusal": is_refusal(answer),
-            "citations": sorted({f"[{d}, p. {p}]" for d, p in CITATION_RE.findall(answer)}),
+            "citations": sorted({f"[{d}, p. {p}]" for d, p in find_citations(answer)}),
             "retrieved": self.retrieved(),
             "trace": self.trace,
             "tool_calls": sum(1 for s in self.trace if "result" in s or "approved" in s),

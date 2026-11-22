@@ -27,7 +27,15 @@ from collections import Counter
 
 import config
 
-CITATION_RE = re.compile(r"\[([a-z0-9_]+),\s*p(?:ág)?\.?\s*(\d+)(?:\s*[-–]\s*\d+)?\]", re.I)
+# Una cita es "doc_id, p. N" dentro de corchetes. El modelo a veces agrupa varias en el
+# mismo corchete ("[cartagena_pcap, p. 21, enisa_pcap, p. 31]" o con ";"): las contamos todas.
+BRACKET_RE = re.compile(r"\[([^\[\]]{3,300})\]")
+CITE_PAIR_RE = re.compile(r"([a-z0-9_]+),\s*p(?:ág)?\.?\s*(\d+)(?:\s*[-–]\s*\d+)?", re.I)
+
+
+def find_citations(text: str) -> list[tuple[str, int]]:
+    """Todas las citas (doc_id, página) de un texto, también las agrupadas en un corchete."""
+    return [(d, int(p)) for group in BRACKET_RE.findall(text) for d, p in CITE_PAIR_RE.findall(group)]
 
 STOPWORDS = set("""
 a al algo algunas algunos ante antes como con contra cual cuales cuando de del desde donde dos

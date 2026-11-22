@@ -204,9 +204,9 @@ async def run_agent_on_all(questions: list[dict]) -> dict[str, dict]:
 # 3. Comprobaciones en código
 # ======================================================================================
 def code_checks(q: dict, rec: dict) -> dict:
-    from retrieval import CITATION_RE
+    from retrieval import find_citations
 
-    cites = [(d, int(p)) for d, p in CITATION_RE.findall(rec["answer"])] if not rec["refusal"] else []
+    cites = find_citations(rec["answer"]) if not rec["refusal"] else []
     invalid = [f"[{d}, p. {p}]" for d, p in cites if not citation_is_valid(d, p, rec["retrieved"])]
     expected_retrieved = any(matches(h, e) for h in rec["retrieved"] for e in q["expected"]) if q["expected"] else None
     expected_cited = (any(d == e["doc"] for d, _ in cites for e in q["expected"]) if q["expected"] else None)
