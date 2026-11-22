@@ -17,7 +17,7 @@ from pathlib import Path
 from mcp.server.mcpserver import MCPServer
 
 import config
-from index import chunk_file, delete_doc_chunks, embed_and_store, file_sha256, get_collection
+from index import METADATA_KEYS, chunk_file, delete_doc_chunks, embed_and_store, file_sha256, get_collection
 from retrieval import Retriever, format_hits
 
 ALLOWED_SUFFIXES = {".pdf", ".txt", ".md", ".html", ".htm", ".json"}
@@ -100,8 +100,17 @@ def add_document(path: str) -> str:
     if not chunks:
         return "ERROR: no se pudo extraer texto del fichero (¿es un PDF escaneado sin texto?)."
     doc_id = chunks[0]["doc_id"]
-    replaced = delete_doc_chunks(config.CHOSEN_DESIGN, doc_id)   # versión anterior, si la hay
+    # Primero se guarda lo nuevo y SOLO DESPUÉS se borra la versión anterior: si la API falla
+    # (cuota, red), el documento antiguo sigue en el índice en vez de desaparecer.
     result = embed_and_store(chunks, config.CHOSEN_DESIGN)
+    new_ids = [c["id"] for c in chunks]
+    stored = set(col.get(ids=new_ids, include=[])["ids"])
+    if stored:   # los fragmentos que no cambiaron de texto pasan a apuntar al fichero nuevo
+        col.update(ids=[c["id"] for c in chunks if c["id"] in stored],
+                   metadatas=[{k: c[k] for k in METADATA_KEYS} for c in chunks if c["id"] in stored])
+    replaced = 0
+    if not result["pending"]:
+        replaced = delete_doc_chunks(config.CHOSEN_DESIGN, doc_id, keep_ids=set(new_ids))
     retriever.reload()
 
     redacted = {k: v for k, v in chunk_file.last_redactions.items() if v}
@@ -110,7 +119,7 @@ def add_document(path: str) -> str:
         msg.append(f"Sustituye a una versión anterior ({replaced} fragmentos borrados).")
     if result["pending"]:
         msg.append(f"AVISO: {result['pending']} fragmentos sin embedding (cuota diaria agotada); "
-                   f"vuelve a llamar mañana para completarlo.")
+                   f"vuelve a llamar mañana para completarlo. Mientras, se conserva la versión anterior.")
     if redacted:
         msg.append(f"Datos personales tachados: {redacted}.")
     msg.append(f"Cítalo como [{doc_id}, p. N].")

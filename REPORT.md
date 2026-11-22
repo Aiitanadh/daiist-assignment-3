@@ -11,7 +11,8 @@ They use the answers twice:
 - **Go/no-go:** solvency thresholds, required certifications (ISO/IEC 27001, ENS) and business classification. This comes before spending days on a proposal.
 - **Preparing the bid:** deadline, guarantees, award criteria and their weights, service levels and penalties.
 
-A wrong answer is expensive. Missing the deadline, not lodging the 5 % guarantee or misreading a solvency threshold gets the bid excluded. A misread service level or penalty becomes a binding commitment on a €246k–€585k contract.
+A wrong answer is expensive. Missing the deadline, not lodging the 5 % guarantee or misreading a solvency threshold gets the bid excluded. A misread service level or penalty becomes a binding commitment on a contract worth €295,200 (ENISA) to €22.9 million (GISS) in estimated value.
+
 "I don't know" is cheap. Every answer cites [document, page], so the user opens that page of the tender documents, which are the legally binding text anyway. So the assistant should refuse whenever it does not retrieve the passage.
 
 ## Corpus
@@ -42,7 +43,6 @@ Nine public documents from three real Spanish cybersecurity tenders (SOC/MDR), a
 
 
 ## Ingestion
-*How you extract, clean and chunk; one extraction problem you fixed; chunk metadata; number of chunks.*
 
 `index.py` runs one pipeline for every document. `server.py` imports it for `add_document`.
 
@@ -88,7 +88,6 @@ There are 37 questions in `eval/questions.csv`, written from the indexed documen
 The questions cover what a bid manager checks before bidding: eligibility (solvency, certifications, classification), money (budget, estimated value, guarantees, penalties), timing (deadline, duration, extensions), scoring (criteria and weights) and service levels.
 
 ## Retrieval
-*Hit rate at 1/3/5 per design, words added to the prompt, the design you chose.*
 I compared two chunking designs. Each one has its own full set of embeddings (gemini-embedding-2, 768 dimensions).
 - **fixed300:** 300-word windows with a 30-word overlap. Ignores the document structure. 320 chunks.
 - **struct:** one chunk per clause, with its heading. 60–350 words. 405 chunks.
@@ -280,11 +279,10 @@ What it shows:
 - So the answer was honest but incomplete. The user still has to open the cited pages. Compare q06: my main agent did find PPT p. 37, but then stated the threshold as 195.000 € sin IVA without being asked (see *Failures*).
 
 ## Adding a document
-*What happens when a document is already indexed. The unanswerable question, the document you added, the answer before and after.*
 
 **What happens if the document is already indexed.** `add_document` computes the SHA-256 hash of the file and looks for it in the index.
 - **Same content already indexed:** it answers «YA INDEXADO» and does nothing. No embeddings are made, so no quota is spent.
-- **Same name (same `doc_id`) but new content:** it deletes the old chunks and indexes the new version, so there are no duplicates.
+- **Same name (same `doc_id`) but new content:** it embeds and stores the new version first, and only then deletes the old chunks. There are no duplicates, and if the API fails halfway (quota, network) the old version stays in the index.
 
 Before indexing, it also checks that the file exists, is inside the project folder, has an allowed type and is 25 MB or less. Then it runs the same pipeline as `index.py` (imported, not rewritten), redaction of personal data included.
 
@@ -464,10 +462,9 @@ First I would fix the chunking, re-run the evaluation and check my labels again.
 - **Searches:** 1.32 tool calls on average.
 
 ## AI use
-*What you used and how, or "none".*
 
 - I used Claude throughout to undertand everyhtgn i was doing.
-- Claude wrote all the code (`index.py`, `retrieval.py`, `server.py`, `agent.py`, `evaluate.py`, `.claude/agents/corpus-researcher.md` and the helper scripts `buscar_licitaciones.py`, `etiquetar.py`, `ver_respuesta.py`, `demo_add_document.py`, `comparar_jueces.py`) and explained it to me step by step. I ran everything on my computer in my terminal, checked the outputs and reported errors, which Claude fixed (for example, a race condition in the query cache and the parser for grouped citations).
+- Claude wrote all the code (`index.py`, `retrieval.py`, `server.py`, `agent.py`, `evaluate.py`, `.claude/agents/corpus-researcher.md` and the helper scripts `buscar_licitaciones.py`, `etiquetar.py`, `ver_respuesta.py`, `demo_add_document.py`, `comparar_jueces.py`) and explained it to me step by step. I ran everything on my computer in my terminal, checked the outputs and reported errors, which Claude fixed (for example, a race condition in the query cache, the parser for grouped citations and, in a final review, the order of operations in `add_document`).
 
   What i decided: 
   - the use case;
