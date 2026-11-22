@@ -122,8 +122,42 @@ All 12 combinations are in `eval/retrieval.md`.
 
 
 ## Adding a document
-
 *What happens when a document is already indexed. The unanswerable question, the document you added, the answer before and after.*
+
+**What happens if the document is already indexed.** `add_document` computes the SHA-256 hash of the file and looks for it in the index.
+- **Same content already indexed:** it answers «YA INDEXADO» and does nothing. No embeddings are made, so no quota is spent.
+- **Same name (same `doc_id`) but new content:** it deletes the old chunks and indexes the new version, so there are no duplicates.
+
+Before indexing, it also checks that the file exists, is inside the project folder, has an allowed type and is 25 MB or less. Then it runs the same pipeline as `index.py` (imported, not rewritten), redaction of personal data included.
+
+**Demo** (`demo_add_document.py`, output saved in `eval/add_document_demo.md`). It works on a temporary copy of `index/`, so the index I submit and my evaluation do not change.
+- **Unanswerable question (q32):** «¿Qué garantía definitiva exige la EMVS de Madrid en su licitación de SOC?»
+- **Document added:** `nuevos/emvs_madrid_pcap.pdf`, the PCAP of the EMVS Madrid SOC tender, from PLACSP.
+
+**Before:**
+
+```text
+El corpus no cubre esta pregunta.
+Buscé información sobre la garantía definitiva en las licitaciones disponibles en el corpus (Ayuntamiento de Cartagena, ENISA y Gerencia de Informática de la Seguridad Social), pero ninguna corresponde a la EMVS de Madrid. […]
+```
+
+**add_document:**
+
+```text
+AÑADIDO: «emvs_madrid_pcap.pdf» como doc_id «emvs_madrid_pcap»: 169 fragmentos nuevos. Datos personales tachados: {'firma': 208, 'email': 6, 'telefono': 1}. Cítalo como [emvs_madrid_pcap, p. N].
+```
+
+**After:**
+
+```text
+La EMVS de Madrid exige una garantía definitiva cuya cuantía es igual al 5 por 100 del importe del precio final ofertado por el licitador, excluido el Impuesto sobre el Valor Añadido, o, en su caso, del presupuesto base de licitación, excluido el Impuesto sobre el Valor Añadido, según lo previsto en el apartado 15 del Anexo I del pliego [emvs_madrid_pcap, p. 15].
+
+Debe acreditarse en el plazo de diez días hábiles a contar desde el siguiente a aquel en que se reciba el requerimiento del artículo 150.2 de la LCSP [emvs_madrid_pcap, p. 15].
+```
+
+- The refusal became a cited answer from the new document.
+- Cost: before, 5,913 tokens and 2.96 s; after, 5,556 tokens and 2.03 s.
+- Redaction also worked on a document it had never seen: 208 signatures, 6 emails and 1 phone number removed.
 
 ## Harness and guardrails
 **System prompt.** `agent.py` (LangChain `create_agent`, model gemini-3.5-flash-lite) uses `AGENTS.md` as the system prompt, unchanged. Each rule has its reason written in the file.
