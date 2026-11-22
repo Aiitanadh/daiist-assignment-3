@@ -49,16 +49,83 @@ The full table, with all 12 combinations, is in `eval/retrieval.md`.
 **Limitation:** a single search retrieves both passages for only 3 of the 6 multi questions (multi_all@5 = 0.50). That is why AGENTS.md tells the agent to run one search per tender when comparing tenders; the end-to-end evaluation shows whether that is enough.
 
 ## Tools and subagent
-
 *Your tools' descriptions, one search result, the subagent's instructions, one transcript from your editor.*
+
+`server.py` exposes two MCP tools. Their descriptions are what the model reads, so they say what the corpus contains, when to call the tool, what each argument means and how to cite.
+
+- **`search(query, licitacion="")`**: searches PCAP and PPT documents and TED notices of three real Spanish cybersecurity (SOC/MDR) tenders, and lists the tenders available (cartagena, enisa, giss). It tells the model to always search before answering, to run several searches when comparing tenders, and to use the optional `licitacion` argument to search only one tender. If the argument is omitted and the query names a tender, the filter is applied automatically. It returns the top 5 chunks, each with the exact citation to copy.
+- **`add_document(path)`**: indexes a new file, to be used only when the user explicitly asks (see *Adding a document*).
+
+One search result (trimmed; full results return 5 chunks):
+
+```text
+5 fragmentos para «garantia definitiva» (filtrados por la licitación «cartagena»)
+---
+[1] Cita: [cartagena_pcap, p. 21]
+Documento: Pliego de Cláusulas Administrativas Particulares (PCAP) — Servicio de SOC/MDR y herramientas de ciberseguridad (Ayuntamiento de Cartagena, expte. SE2026/44)
+Apartado: B) DOCUMENTACIÓN JUSTIFICATIVA DE HALLARSE AL CORRIENTE EN EL CUMPLIMIENTO DE SUS | Páginas: 21-22
+Texto: … una garantía definitiva del 5% del precio final ofertado, excluido el Impuesto sobre el Valor añadido, de conformidad con lo establecido en el artículo 107 de la LCSP. …
+---
+[2] …
+```
+
+**Subagent** (`.claude/agents/corpus-researcher.md`): it can only use `mcp__corpus__search`. Its instructions are to search before answering, to run one search per tender when comparing (with the `licitacion` argument), to reformulate with the words a tender document would use, with at most 4 searches, to cite every claim as `[doc_id, p. N]`, and to start with «El corpus no cubre esta pregunta» when the chunks do not answer.
+
+**Transcript from Claude Code** (full export in `eval/subagent_transcript.txt`). Claude Code ran in auto permission mode, so the read-only `search` calls were approved without a prompt.
+
+```text
+(paste here the content of eval/subagent_transcript.txt)
+```
+
+The subagent ran one search per tender and cited every figure. For ENISA it gave the exact threshold (€123,000, [enisa_pcap, p. 23]). For Cartagena it reported that the PCAP only gives the rule ("precio de licitación anual") and declined to compute the amount itself. It also warned that it had hit its 4-search limit. That warning was justified: the annual amount is in the PPT (p. 37: €195,000 per year excluding VAT, €235,950 including VAT), which it did not search. It is a useful example of an honest but incomplete answer, and of why the user still has to read the cited pages.
 
 ## Adding a document
 
 *What happens when a document is already indexed. The unanswerable question, the document you added, the answer before and after.*
 
 ## Harness and guardrails
-
 *Your AGENTS.md rules, the approval step, and your extra guardrail with one case where it fired.*
+
+**System prompt.** `agent.py` (LangChain `create_agent`, model gemini-3.5-flash-lite) loads `AGENTS.md` as the system prompt, unchanged. It has the three required rules and four of mine, each with its reason written in the file:
+
+1. Answer only from what `search` returns, and always search first.
+2. Cite every claim as `[doc_id, p. N]`, copied from the search results.
+3. If the corpus does not cover the question, start with «El corpus no cubre esta pregunta».
+4. *(mine)* If the corpus covers only part of the question, answer that part and end with «Lo que el corpus no cubre:». The refusal phrase is kept for full refusals.
+5. *(mine)* If two documents contradict each other, give both values with their citations and say they differ, without choosing one.
+6. *(mine)* Copy figures exactly as written. Calculate only if the user asks, showing the operation and where each input comes from.
+7. *(mine)* An opinion is allowed in a paragraph starting «Opinión (la decisión es tuya):», based only on the cited facts; the decision is the user's.
+
+The harness also caps each question at 6 tool calls and 10 model calls (LangChain middleware), so a confused agent cannot loop and use up the quota.
+
+**Approval step.** The MCP tools are wrapped as LangChain tools. Before `add_document` runs, the wrapper shows the path and asks `[s/N]` in the terminal. Any answer except «s» denies it: the tool is not called, and the agent receives «DENEGADO: el usuario no ha aprobado añadir este documento. No lo vuelvas a intentar; explica que hace falta su aprobación.» When there is no terminal (for example inside `main.py evaluate`), it denies automatically. Example run:
+
+```text
+$ uv run python main.py ask "Añade al índice el documento nuevos/emvs_madrid_pcap.pdf"
+[APROBACIÓN] El agente quiere AÑADIR al índice el fichero:
+    nuevos/emvs_madrid_pcap.pdf
+Esto gasta cuota de embeddings y cambia el índice. ¿Lo apruebas? [s/N] N
+El corpus no cubre esta pregunta. Tras buscar en el corpus los expedientes disponibles (Cartagena, ENISA y GISS), no se encuentra el documento `nuevos/emvs_madrid_pcap.pdf` ni información relativa a la EMVS de Madrid, ya que el sistema requiere la aprobación expresa del usuario para añadir nuevos documentos al índice (véase, por ejemplo, [enisa_pcap, p. 1]).
+
+[guardarraíl de citas] corregida: la respuesta no tiene ninguna cita [doc_id, p. N]
+
+--- Primera respuesta del agente (la que paró el guardarraíl) ---
+El corpus no cubre esta acción porque el usuario no ha aprobado añadir el documento. Para poder añadir `nuevos/emvs_madrid_pcap.pdf` al índice, se requiere su aprobación expresa.
+--- Fin de la primera respuesta ---
+
+[2 llamadas a herramientas · 8862 tokens · 23.93 s]
+```
+
+The document was not added and the index did not change.
+
+**Extra guardrail: citation check.** After the agent answers, the harness checks two things in code. Every answer that is not a refusal must have at least one citation. Every cited `[doc_id, p. N]` must fall inside a chunk that `search` returned for that question (same document, page within the chunk's page range). If either check fails, the harness tells the agent what is wrong and asks once for a rewrite with valid citations, or for a refusal. If the rewrite still fails, the harness replaces it with «El corpus no cubre esta pregunta con fuentes verificables» plus the reason. Both answers are saved in the trace. I chose this guardrail because rule 2 is what makes an answer usable in my use case, and a model can write a citation-shaped string pointing to a page it never retrieved.
+
+**Where it fired.**
+- *The approval run above.* The first answer explained the denial correctly. It began «El corpus no cubre esta acción» instead of the exact refusal phrase, so the code treated it as an answer without citations. The rewrite searched, started with the refusal phrase and added `[enisa_pcap, p. 1]`. That page says nothing about approvals, but it had been retrieved, so the guardrail let it through. This shows the guardrail's limit: it checks that a citation points to retrieved text, not that the text supports the sentence. Only the judge's *supported* grade checks that, and only during evaluation. In this case the guardrail made a correct answer worse.
+- *q26, first evaluation run.* It blocked a correct answer comparing the Cartagena and ENISA guarantees. The blocked text was not saved at the time. The most likely cause is that the agent grouped two citations in one bracket, as it did in the re-run (`[cartagena_pcap, p. 21, enisa_pcap, p. 31]`), and my first parser did not recognise that format. I changed the parser to read several citations in one bracket, made the harness save the original answer, and re-ran q26. It passed.
+- *A direct attempt that did not fire.* I asked the agent to answer from memory and cite `[cartagena_pcap, p. 99]`. It refused by itself, quoting rules 1 and 2, without calling any tool. Refusals are not checked, so the guardrail had nothing to do.
+
+**What I would fix first:** skip the check when the agent's turn ended with a denied `add_document`, since there is nothing in the corpus to cite. Then add a runtime check that the cited chunk shares the key figures or terms of the sentence it supports.
 
 ## Evaluation
 
