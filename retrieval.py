@@ -18,8 +18,10 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import sys
+import threading
 import unicodedata
 from collections import Counter
 
@@ -79,6 +81,7 @@ class BM25:
 # Embedding de la pregunta (con caché en disco)
 # --------------------------------------------------------------------------------------
 _cache: dict | None = None
+_cache_lock = threading.Lock()
 
 
 def _cache_key(query: str) -> str:
@@ -87,12 +90,13 @@ def _cache_key(query: str) -> str:
 
 def load_query_cache() -> dict:
     global _cache
-    if _cache is None:
-        try:
-            _cache = json.loads(config.QUERY_CACHE.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            _cache = {}
-    return _cache
+    with _cache_lock:
+        if _cache is None:
+            try:
+                _cache = json.loads(config.QUERY_CACHE.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                _cache = {}
+        return _cache
 
 
 def embed_query(query: str) -> list[float] | None:
@@ -108,10 +112,17 @@ def embed_query(query: str) -> list[float] | None:
     except Exception as e:  # noqa: BLE001 - sin key o sin cuota: seguimos solo con BM25
         log(f"[retrieval] No pude embeber la pregunta ({type(e).__name__}: {str(e)[:120]}). Uso solo BM25.")
         return None
-    cache[key] = vector
-    tmp = config.QUERY_CACHE.with_suffix(".tmp")
-    tmp.write_text(json.dumps(cache), encoding="utf-8")
-    tmp.replace(config.QUERY_CACHE)   # escritura atómica: nunca queda un JSON a medias
+    # El agente puede lanzar varias búsquedas A LA VEZ (p. ej. una por licitación) y el
+    # servidor las atiende en hilos paralelos: el candado evita que dos hilos escriban la
+    # caché al mismo tiempo, y un fallo al guardarla nunca debe romper la búsqueda.
+    with _cache_lock:
+        cache[key] = vector
+        try:
+            tmp = config.QUERY_CACHE.with_name(f"query_cache.{os.getpid()}.{threading.get_ident()}.tmp")
+            tmp.write_text(json.dumps(cache), encoding="utf-8")
+            tmp.replace(config.QUERY_CACHE)   # escritura atómica: nunca queda un JSON a medias
+        except OSError as e:
+            log(f"[retrieval] No pude guardar la caché de preguntas ({e}); sigo sin guardarla.")
     return vector
 
 

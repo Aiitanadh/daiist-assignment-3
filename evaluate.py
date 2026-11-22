@@ -155,12 +155,26 @@ def read_jsonl(path) -> list[dict]:
     return [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
 
 
+def had_tool_error(rec: dict) -> bool:
+    """Una respuesta en la que search falló por un error NUESTRO (no del modelo) no es
+    representativa: se vuelve a calcular en la siguiente ejecución."""
+    return any(step.get("error") or str(step.get("result", "")).startswith("Error executing tool")
+               for step in rec.get("trace", []))
+
+
+def lost_guardrail_text(rec: dict) -> bool:
+    """Respuestas antiguas en las que saltó el guardarraíl sin guardar el texto bloqueado:
+    se recalculan una vez para poder analizarlas (ver_respuesta.py)."""
+    g = rec.get("guardrail", {})
+    return bool(g.get("fired")) and "original_answer" not in g
+
+
 async def run_agent_on_all(questions: list[dict]) -> dict[str, dict]:
     from agent import Harness
 
     signature = run_signature()
     cached = {r["id"]: r for r in read_jsonl(ANSWERS)
-              if r.get("signature") == signature}
+              if r.get("signature") == signature and not had_tool_error(r) and not lost_guardrail_text(r)}
     todo = [q for q in questions if not (q["id"] in cached and cached[q["id"]]["question"] == q["question"])]
     log(f"  {len(questions) - len(todo)} respuestas reutilizadas de answers.jsonl, {len(todo)} por calcular")
     if todo:
@@ -249,7 +263,12 @@ def judge_one(q: dict, rec: dict, rubric: str) -> dict:
             if e.code != 429 or "perday" in str(e).lower().replace(" ", "").replace("_", ""):
                 raise
             time.sleep(15 * (attempt + 1))
-    raise RuntimeError("El juez sigue devolviendo 429")
+        except errors.ServerError as e:
+            # 500/503: el modelo está saturado ("high demand"). Suele pasar en segundos.
+            wait = 20 * (attempt + 1)
+            log(f"    juez: Gemini saturado ({e.code}); reintento en {wait}s ...")
+            time.sleep(wait)
+    raise RuntimeError("El juez sigue sin responder tras varios reintentos (429/503)")
 
 
 def run_judge(questions: list[dict], answers: dict) -> dict[str, dict]:

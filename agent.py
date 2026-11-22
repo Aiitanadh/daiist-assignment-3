@@ -142,7 +142,8 @@ class Harness:
                             "intentar; explica que hace falta su aprobación.")
             result = await self.session.call_tool(name, kwargs)
             text = "\n".join(getattr(c, "text", "") for c in result.content)
-            self.trace.append({"tool": name, "args": kwargs, "result": text})
+            self.trace.append({"tool": name, "args": kwargs, "result": text,
+                               "error": bool(getattr(result, "is_error", getattr(result, "isError", False)))})
             return text
 
         return StructuredTool.from_function(
@@ -169,7 +170,8 @@ class Harness:
         guardrail = {"fired": False, "problems": [], "blocked": False}
         problems = check_citations(answer, self.retrieved())
         if problems:
-            guardrail.update(fired=True, problems=problems)
+            # Guardamos el texto original: hace falta para el análisis de fallos y el REPORT.
+            guardrail.update(fired=True, problems=problems, original_answer=answer)
             fix = (f"GUARDARRAÍL: tu respuesta no cumple las reglas: {'; '.join(problems)}. "
                    f"Reescríbela usando SOLO citas [doc_id, p. N] que aparezcan en los resultados de "
                    f"search (puedes buscar otra vez), o, si no tienes base en ellos, empieza la respuesta "
@@ -177,6 +179,7 @@ class Harness:
             result = await self.agent.ainvoke({"messages": messages + [{"role": "user", "content": fix}]})
             messages = result["messages"]
             answer = message_text(messages[-1])
+            guardrail["second_answer"] = answer
             still = check_citations(answer, self.retrieved())
             if still:
                 guardrail.update(blocked=True, problems=problems + still)
