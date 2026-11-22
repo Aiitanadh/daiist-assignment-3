@@ -235,6 +235,9 @@ def main() -> None:
     g = out["guardrail"]
     if g["fired"]:
         print(f"\n[guardarraíl de citas] {'BLOQUEADA' if g['blocked'] else 'corregida'}: {'; '.join(g['problems'])}")
+        print("\n--- Primera respuesta del agente (la que paró el guardarraíl) ---")
+        print(g.get("original_answer", ""))
+        print("--- Fin de la primera respuesta (arriba del todo está la respuesta final) ---")
     print(f"\n[{out['tool_calls']} llamadas a herramientas · {out['total_tokens']} tokens · {out['seconds']} s]")
 
 
