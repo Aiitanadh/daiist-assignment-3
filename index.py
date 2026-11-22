@@ -590,7 +590,11 @@ def genai_client():
 
         from api_key import load_api_key
 
-        _genai_client = genai.Client(api_key=load_api_key())
+        from google.genai import types
+
+        # Timeout de 2 minutos por petición: si Gemini se queda colgado, mejor un error
+        # (que se reintenta) que un programa parado sin decir nada.
+        _genai_client = genai.Client(api_key=load_api_key(), http_options=types.HttpOptions(timeout=120_000))
     return _genai_client
 
 

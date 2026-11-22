@@ -234,6 +234,7 @@ del agente frente a la respuesta de referencia y la evidencia. Devuelve:
 
 
 def judge_one(q: dict, rec: dict, rubric: str) -> dict:
+    import httpx
     from google.genai import errors, types
     from pydantic import BaseModel
 
@@ -262,12 +263,16 @@ def judge_one(q: dict, rec: dict, rubric: str) -> dict:
         except errors.ClientError as e:
             if e.code != 429 or "perday" in str(e).lower().replace(" ", "").replace("_", ""):
                 raise
-            time.sleep(15 * (attempt + 1))
+            wait = 15 * (attempt + 1)
+            log(f"    juez: límite de peticiones por minuto de Gemini (429); espero {wait}s ...")
+            time.sleep(wait)
         except errors.ServerError as e:
             # 500/503: el modelo está saturado ("high demand"). Suele pasar en segundos.
             wait = 20 * (attempt + 1)
             log(f"    juez: Gemini saturado ({e.code}); reintento en {wait}s ...")
             time.sleep(wait)
+        except httpx.TimeoutException:
+            log("    juez: Gemini tarda más de 2 minutos en responder; reintento ...")
     raise RuntimeError("El juez sigue sin responder tras varios reintentos (429/503)")
 
 
