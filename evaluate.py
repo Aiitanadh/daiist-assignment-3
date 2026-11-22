@@ -208,7 +208,10 @@ def code_checks(q: dict, rec: dict) -> dict:
 
     cites = find_citations(rec["answer"]) if not rec["refusal"] else []
     invalid = [f"[{d}, p. {p}]" for d, p in cites if not citation_is_valid(d, p, rec["retrieved"])]
-    expected_retrieved = any(matches(h, e) for h in rec["retrieved"] for e in q["expected"]) if q["expected"] else None
+    # Una pregunta multi solo cuenta como "pasaje recuperado" si se recuperaron TODOS sus pasajes
+    # (antes bastaba uno, y q30 salía como "wrong answer from right passage" sin haber visto giss_ted).
+    expected_retrieved = (all(any(matches(h, e) for h in rec["retrieved"]) for e in q["expected"])
+                          if q["expected"] else None)
     expected_cited = (any(d == e["doc"] for d, _ in cites for e in q["expected"]) if q["expected"] else None)
     return {
         "refusal": rec["refusal"],

@@ -35,7 +35,8 @@ Desacuerdos (humano vs. sistema, correct/supported):
 
 | causa | n |
 |---|---|
-| wrong answer from right passage | 3 |
+| wrong answer from right passage | 2 |
+| retrieval miss | 1 |
 
 
 ## Retrieval

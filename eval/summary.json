@@ -30,7 +30,8 @@
   "seconds_max": 36.45,
   "tool_calls_mean": 1.32,
   "failures_by_suggested_cause": {
-    "wrong answer from right passage": 3
+    "wrong answer from right passage": 2,
+    "retrieval miss": 1
   },
   "human_judge_agreement": {
     "correct": {
