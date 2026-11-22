@@ -296,7 +296,7 @@ def run_judge(questions: list[dict], answers: dict) -> dict[str, dict]:
         except Exception as e:  # noqa: BLE001
             log(f"  ! juez {q['id']}: {type(e).__name__}: {str(e)[:160]}. Paro el juez; repite más tarde.")
             break
-        v.update(key=key, id=q["id"])
+        v.update(key=key, id=q["id"], judge_model=config.JUDGE_MODEL)
         cached[key] = out[q["id"]] = v
         with JUDGE.open("w", encoding="utf-8") as f:
             for r in cached.values():

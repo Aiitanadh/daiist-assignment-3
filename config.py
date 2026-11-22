@@ -30,7 +30,12 @@ EMBED_DIM = 768        # 768 en vez de 3072: índice 4 veces más pequeño, mism
 EMBED_BATCH = 20       # textos por petición (cada texto cuenta para la cuota diaria)
 # Modelo del agente y del juez. Comprueba tus límites en https://ai.dev/rate-limit
 CHAT_MODEL = os.environ.get("GEMINI_CHAT_MODEL", "gemini-3.5-flash-lite")
-JUDGE_MODEL = os.environ.get("GEMINI_JUDGE_MODEL", "gemini-3.6-flash")
+# >>> DECISIÓN TUYA: el juez. <<< Empezaste con gemini-3.6-flash, pero su cuota gratuita
+# (20 peticiones al día) no llegaba para las 31 respuestas. gemini-3.1-flash-lite tiene 500
+# al día y NO es el modelo del agente (un modelo no debe corregirse a sí mismo).
+# Sus notas antiguas siguen en judge.jsonl; comparar_jueces.py compara los dos jueces.
+JUDGE_MODEL = os.environ.get("GEMINI_JUDGE_MODEL", "gemini-3.1-flash-lite")
+EARLIER_JUDGE_MODEL = "gemini-3.6-flash"
 
 # --- Diseños de chunking ----------------------------------------------------------
 # Cada diseño de chunking cuesta un índice completo de embeddings. Ambos tienen un
